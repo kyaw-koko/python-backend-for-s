@@ -1,0 +1,13 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+astropy>=6.0.0
+astroquery>=0.4.7
+reproject>=0.13.0
+photutils>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+pillow>=10.0.0
+matplotlib>=3.7.0
+requests>=2.31.0
+certifi>=2024.2.2
+pydantic>=2.6.0
