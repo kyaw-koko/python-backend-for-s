@@ -130,6 +130,42 @@ def detect_star_peaks(
         return []
 
 
+def clean_star_image(
+    image_array: np.ndarray,
+    sigma: float = 2.5,
+    star_threshold_snr: float = 4.0,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Subtract sigma-clipped background and suppress noise floor, returning a
+    cleaned array (background removed, negative values floored to 0) plus a
+    boolean mask of likely stellar sources above star_threshold_snr.
+    """
+    arr = np.copy(image_array).astype(np.float32)
+    nan_mask = ~np.isfinite(arr) | (arr < -1.0)
+    arr[nan_mask] = np.nan
+    valid_pixels = arr[~nan_mask]
+
+    if valid_pixels.size == 0:
+        return np.zeros_like(arr, dtype=np.float32), np.zeros(arr.shape, dtype=bool)
+
+    try:
+        mean_bkg, med_bkg, std_bkg = sigma_clipped_stats(valid_pixels, sigma=sigma)
+    except Exception:
+        med_bkg = float(np.nanmedian(valid_pixels))
+        std_bkg = float(np.nanstd(valid_pixels)) or 1.0
+
+    cleaned = arr - float(med_bkg)
+    cleaned[nan_mask] = np.nan
+    cleaned = np.where(np.isfinite(cleaned), np.clip(cleaned, 0.0, None), np.nan)
+
+    threshold = float(med_bkg) + star_threshold_snr * float(std_bkg)
+    star_mask = np.isfinite(arr) & (arr >= threshold)
+    # Keep only stellar sources; suppress all residual background/noise.
+    cleaned = np.where(star_mask, cleaned, 0.0)
+    cleaned[nan_mask] = np.nan
+    return cleaned.astype(np.float32), star_mask
+
+
 def stretch_and_encode_png(
     image_array: np.ndarray,
     stretch_type: str = "asinh",
@@ -139,6 +175,7 @@ def stretch_and_encode_png(
     contrast: float = 0.25,
     is_diff: bool = False,
     clean_background: bool = True,
+    star_threshold_snr: float = 4.0,
 ) -> Dict[str, Any]:
     """
     Apply robust background noise floor, anomaly filtering, astronomical contrast
@@ -179,11 +216,15 @@ def stretch_and_encode_png(
     elif clean_background:
         # Robust astronomical background subtraction & noise suppression
         try:
-            mean_bkg, med_bkg, std_bkg = sigma_clipped_stats(valid_pixels, sigma=2.5)
-            # Push all sky noise fluctuations below the background noise floor to vmin
-            vmin = float(med_bkg)
-            vmax = float(min(np.max(valid_pixels), med_bkg + 18.0 * std_bkg))
-            if vmax <= vmin:
+            cleaned_arr, _ = clean_star_image(arr, sigma=2.5, star_threshold_snr=star_threshold_snr)
+            cp = cleaned_arr[np.isfinite(cleaned_arr)]
+            arr = np.where(np.isfinite(cleaned_arr), cleaned_arr, np.nan)
+            valid_pixels = arr[np.isfinite(arr)]
+            med_bkg = 0.0
+            std_bkg = float(np.nanstd(cp)) if cp.size else 1.0
+            vmin = 0.0
+            vmax = float(np.nanpercentile(cp, 99.5)) if cp.size else float(np.max(valid_pixels))
+            if not np.isfinite(vmax) or vmax <= vmin:
                 vmax = vmin + 1.0
         except Exception:
             vmin = float(np.percentile(valid_pixels, 15.0))
@@ -250,6 +291,8 @@ def process_epochs_mode(
     shape_out: Tuple[int, int],
     colormap: str = "magma",
     stretch: str = "asinh",
+    clean_background: bool = True,
+    star_threshold_snr: float = 4.0,
 ) -> List[Dict[str, Any]]:
     """
     Mode 'epochs': Generate time-sorted individual frames for blinking animations.
@@ -269,7 +312,8 @@ def process_epochs_mode(
             stretch_type=stretch,
             colormap=colormap,
             is_diff=False,
-            clean_background=True,
+            clean_background=clean_background,
+            star_threshold_snr=star_threshold_snr,
         )
 
         stars = detect_star_peaks(reprojected, min_snr=3.5)
@@ -300,6 +344,8 @@ def process_coadd_mode(
     shape_out: Tuple[int, int],
     colormap: str = "viridis",
     stretch: str = "asinh",
+    clean_background: bool = True,
+    star_threshold_snr: float = 4.0,
 ) -> Dict[str, Any]:
     """
     Mode 'coadd': Mean/median stack grouped by detector array (D1-D6) + overall mission coadd.
@@ -336,6 +382,8 @@ def process_coadd_mode(
             stretch_type=stretch,
             colormap=colormap,
             is_diff=False,
+            clean_background=clean_background,
+            star_threshold_snr=star_threshold_snr,
         )
 
         mean_wave = float(np.mean(detector_wavelengths[band]))
@@ -361,6 +409,8 @@ def process_coadd_mode(
             stretch_type=stretch,
             colormap=colormap,
             is_diff=False,
+            clean_background=clean_background,
+            star_threshold_snr=star_threshold_snr,
         )
         overall_stack = {
             "detector": "SPHEREx-All",
@@ -386,6 +436,8 @@ def process_diff_mode(
     shape_out: Tuple[int, int],
     colormap: str = "coolwarm",
     stretch: str = "asinh",
+    clean_background: bool = True,
+    star_threshold_snr: float = 4.0,
 ) -> Dict[str, Any]:
     """
     Mode 'diff': Epoch subtraction (Epoch_B - Epoch_A) to highlight moving objects (dipoles)
@@ -437,12 +489,16 @@ def process_diff_mode(
         stretch_type="asinh",
         colormap="viridis",
         is_diff=False,
+        clean_background=clean_background,
+        star_threshold_snr=star_threshold_snr,
     )
     encoded_b = stretch_and_encode_png(
         stack_b,
         stretch_type="asinh",
         colormap="viridis",
         is_diff=False,
+        clean_background=clean_background,
+        star_threshold_snr=star_threshold_snr,
     )
 
     return {
