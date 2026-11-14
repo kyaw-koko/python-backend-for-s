@@ -241,10 +241,12 @@ def get_sky_patch(
     fov: float = Query(0.05, ge=0.005, le=0.5, description="Field of View in degrees"),
     detector: Optional[str] = Query(None, description="Optional detector array filter (SPHEREx-D1 to D6)"),
     mode: Literal["epochs", "coadd", "diff"] = Query("epochs", description="Processing mode: epochs, coadd, or diff"),
-    colormap: str = Query("viridis", description="Matplotlib colormap (viridis, plasma, magma, coolwarm, gray)"),
+    colormap: str = Query("magma", description="Matplotlib colormap (viridis, plasma, magma, coolwarm, gray)"),
     stretch: str = Query("asinh", description="Contrast stretch (asinh or linear)"),
     max_frames: int = Query(15, ge=1, le=100, description="Maximum number of cutouts to process"),
     include_catalogs: bool = Query(True, description="Whether to include Gaia DR3 & AllWISE catalog overlays"),
+    clean_background: bool = Query(True, description="Apply sigma-clipped background cleaning to improve star clarity"),
+    star_threshold_snr: float = Query(4.0, ge=1.0, le=20.0, description="SNR threshold for star detection/cleaning"),
 ):
     """
     Fetch and process SPHEREx cutouts on a common North-Up tangential (TAN) WCS grid.
@@ -299,16 +301,16 @@ def get_sky_patch(
     # Process requested mode
     processed_payload: Dict[str, Any] = {}
     if mode == "epochs":
-        frames = process_epochs_mode(cutouts, ref_wcs, shape_out, colormap=colormap, stretch=stretch)
+        frames = process_epochs_mode(cutouts, ref_wcs, shape_out, colormap=colormap, stretch=stretch, clean_background=clean_background, star_threshold_snr=star_threshold_snr)
         processed_payload = {"frames": frames, "frame_count": len(frames)}
     elif mode == "coadd":
-        coadd_result = process_coadd_mode(cutouts, ref_wcs, shape_out, colormap=colormap, stretch=stretch)
+        coadd_result = process_coadd_mode(cutouts, ref_wcs, shape_out, colormap=colormap, stretch=stretch, clean_background=clean_background, star_threshold_snr=star_threshold_snr)
         processed_payload = coadd_result
     elif mode == "diff":
         if len(cutouts) < 2:
             raise HTTPException(status_code=400, detail="Epoch diff mode requires at least 2 distinct exposures.")
         diff_colormap = "coolwarm" if colormap == "viridis" else colormap
-        diff_result = process_diff_mode(cutouts, ref_wcs, shape_out, colormap=diff_colormap, stretch=stretch)
+        diff_result = process_diff_mode(cutouts, ref_wcs, shape_out, colormap=diff_colormap, stretch=stretch, clean_background=clean_background, star_threshold_snr=star_threshold_snr)
         processed_payload = diff_result
 
     # Catalog Overlays (Gaia DR3 + AllWISE)
