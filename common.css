@@ -1,0 +1,501 @@
+/* ==========================================================================
+   SPHEREx & Planet X — Shared Design System (Matching Figma Layout)
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Padauk:wght@400;700&display=swap');
+
+:root {
+  --bg-color: #06070a;
+  --bg-surface: rgba(11, 15, 23, 0.75);
+  --border-glow: #6f8cb8;
+  --border-glow-soft: rgba(111, 140, 184, 0.45);
+  --border-glow-bright: rgba(145, 185, 240, 0.85);
+  --text-main: #eef3fc;
+  --text-muted: #9ab0cf;
+  --text-dim: #60738d;
+  --cyan-accent: #00e5ff;
+  --orange-accent: #ff9100;
+  --red-accent: #ff5252;
+  --blue-accent: #448aff;
+  --pill-bg-hover: rgba(111, 140, 184, 0.15);
+  --radius-frame: 20px;
+  --radius-pill: 9999px;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-title: 'Cinzel', serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-color);
+  background-image: 
+    radial-gradient(circle at 20% 15%, rgba(20, 32, 54, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(16, 24, 40, 0.35) 0%, transparent 55%),
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03' fill-rule='evenodd'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E");
+  color: var(--text-main);
+  font-family: var(--font-serif);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* Myanmar font support */
+body.lang-mm {
+  font-family: 'Padauk', sans-serif;
+}
+
+/* ==========================================================================
+   HEADER & NAVBAR (Matches Figma Top Bar)
+   ========================================================================== */
+.site-header {
+  width: 100%;
+  padding: 24px 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--text-main);
+  gap: 14px;
+}
+
+.brand-logo {
+  width: 58px;
+  height: 58px;
+  filter: drop-shadow(0 0 8px rgba(111, 140, 184, 0.35));
+  transition: transform 0.3s ease;
+}
+
+.brand:hover .brand-logo {
+  transform: rotate(6deg) scale(1.05);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-title {
+  font-family: var(--font-title);
+  font-size: 19px;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.brand-sub {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  list-style: none;
+}
+
+.nav-link {
+  color: var(--text-main);
+  text-decoration: none;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  position: relative;
+  transition: color 0.2s ease, opacity 0.2s ease;
+  opacity: 0.9;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  opacity: 1;
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(111, 140, 184, 0.6);
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--border-glow);
+  box-shadow: 0 0 8px var(--cyan-accent);
+}
+
+.lang-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-glow-soft);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.2s ease;
+}
+
+.lang-toggle-btn:hover {
+  border-color: var(--border-glow-bright);
+  background: var(--pill-bg-hover);
+  box-shadow: 0 0 12px rgba(111, 140, 184, 0.3);
+}
+
+/* ==========================================================================
+   MAIN DUAL-FRAME GRID LAYOUT (Matches Figma: Left Canvas, Right Card)
+   ========================================================================== */
+.main-container {
+  flex: 1;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 12px 48px 48px 48px;
+  display: grid;
+  grid-template-columns: 1.9fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+/* Framed Boxes with Rounded Borders */
+.viewport-frame,
+.info-card-frame {
+  border: 1.5px solid var(--border-glow-soft);
+  border-radius: var(--radius-frame);
+  background: var(--bg-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(111, 140, 184, 0.04);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.viewport-frame:hover,
+.info-card-frame:hover {
+  border-color: var(--border-glow);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), inset 0 0 25px rgba(111, 140, 184, 0.08);
+}
+
+/* Left Section: Viewport + Controls */
+.left-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.viewport-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #030406;
+}
+
+.viewport-canvas,
+.viewport-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: auto;
+  display: block;
+}
+
+/* Overlay Layer for Celestial Callouts & Vectors */
+.viewport-overlay-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Status / WCS Grid Corner Badges */
+.badge-corner {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  background: rgba(6, 9, 14, 0.85);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(111, 140, 184, 0.3);
+  pointer-events: none;
+}
+
+.badge-corner-right {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--cyan-accent);
+  background: rgba(6, 9, 14, 0.85);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   PILL BUTTONS (Exact Figma Style)
+   ========================================================================== */
+.controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.pill-btn {
+  border: 1.5px solid var(--border-glow);
+  background: transparent;
+  color: var(--text-main);
+  font-family: var(--font-serif);
+  font-size: 18px;
+  padding: 10px 28px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.25s ease;
+  user-select: none;
+  text-decoration: none;
+}
+
+.pill-btn:hover {
+  background: var(--pill-bg-hover);
+  border-color: var(--border-glow-bright);
+  box-shadow: 0 0 16px rgba(111, 140, 184, 0.4);
+  transform: translateY(-1px);
+}
+
+.pill-btn:active {
+  transform: translateY(0);
+}
+
+.pill-btn.active {
+  background: rgba(111, 140, 184, 0.3);
+  border-color: #ffffff;
+  box-shadow: 0 0 20px rgba(111, 140, 184, 0.5);
+}
+
+.pill-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Secondary Selector Pill */
+.pill-select-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.pill-select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1.5px solid var(--border-glow-soft);
+  background: rgba(11, 15, 23, 0.9);
+  color: var(--text-muted);
+  font-family: var(--font-serif);
+  font-size: 16px;
+  padding: 10px 42px 10px 24px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.25s ease;
+}
+
+.pill-select:hover,
+.pill-select:focus {
+  border-color: var(--border-glow);
+  color: var(--text-main);
+  box-shadow: 0 0 14px rgba(111, 140, 184, 0.3);
+}
+
+.pill-select-wrapper::after {
+  content: '▼';
+  font-size: 10px;
+  color: var(--text-muted);
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   RIGHT SECTION: INFO CARD FRAME (Matches Figma typography and layout)
+   ========================================================================== */
+.info-card-frame {
+  padding: 32px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 480px;
+}
+
+.info-title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  line-height: 1.35;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.info-title b,
+.info-title strong {
+  color: #ffffff;
+}
+
+.info-body {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+.info-body p {
+  margin-bottom: 16px;
+}
+
+.info-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Telemetry Key-Value Grid */
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(111, 140, 184, 0.25);
+  font-family: var(--font-sans);
+}
+
+.telemetry-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.telemetry-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+.telemetry-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cyan-accent);
+}
+
+/* ==========================================================================
+   LOADING SPINNER & ERROR TOASTS
+   ========================================================================== */
+.loader-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(6, 7, 10, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.loader-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(111, 140, 184, 0.2);
+  border-top-color: var(--cyan-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loader-text {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN (Tablets & Mobile)
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .main-container {
+    grid-template-columns: 1fr;
+    padding: 16px 24px 36px 24px;
+  }
+  .site-header {
+    padding: 20px 24px;
+  }
+  .nav-links {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 680px) {
+  .site-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .nav-links {
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 15px;
+  }
+  .controls-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pill-btn,
+  .pill-select {
+    width: 100%;
+    text-align: center;
+  }
+}

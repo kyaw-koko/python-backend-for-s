@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPHEREx — Sky Navigator & Benchmark Presets</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="presets.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="site-header">
+    <a href="explore.html" class="brand">
+      <svg class="brand-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="45" stroke="#6f8cb8" stroke-width="1.8" stroke-dasharray="6 4"/>
+        <ellipse cx="50" cy="50" rx="36" ry="18" stroke="#a0b8db" stroke-width="2" transform="rotate(-25 50 50)"/>
+        <circle cx="50" cy="50" r="14" fill="#142036" stroke="#00e5ff" stroke-width="2.5"/>
+        <path d="M42 50 L58 50 M50 42 L50 58" stroke="#00e5ff" stroke-width="1.8"/>
+        <circle cx="68" cy="38" r="3" fill="#ffffff"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-title">SPHEREx</span>
+        <span class="brand-sub">Sky Navigator & Presets</span>
+      </div>
+    </a>
+
+    <nav>
+      <ul class="nav-links">
+        <li><a href="presets.html" class="nav-link active" data-i18n="nav_about">About</a></li>
+        <li><a href="explore.html" class="nav-link" data-i18n="nav_explore">Explore</a></li>
+        <li><a href="track.html" class="nav-link" data-i18n="nav_track">Track</a></li>
+        <li><a href="catalog.html" class="nav-link" data-i18n="nav_catalog">Catalog</a></li>
+        <li><a href="spectrum.html" class="nav-link" data-i18n="nav_spectrum">Spectrum</a></li>
+        <li><button id="langToggleBtn" class="lang-toggle-btn">ENG/MM</button></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Dual-Frame Main Container -->
+  <main class="main-container">
+    
+    <!-- Left Section: Celestial Map & Benchmark Deck -->
+    <section class="left-section">
+      <div class="viewport-frame" id="viewportFrame">
+        <div class="badge-corner" id="coordsBadge">ALL-SKY CELESTIAL PROJECTION (ICRS)</div>
+        <div class="badge-corner-right" id="presetCountBadge">5 OFFICIAL BENCHMARKS</div>
+        
+        <canvas id="skyMapCanvas" width="960" height="600" class="viewport-canvas"></canvas>
+
+        <div class="loader-overlay" id="loaderOverlay">
+          <div class="spinner"></div>
+          <span class="loader-text">Loading Benchmark Targets (/api/targets/presets)...</span>
+        </div>
+      </div>
+
+      <!-- Quick-Action Launch Pills -->
+      <div class="controls-row">
+        <button id="launchBlinkerBtn" class="pill-btn active">
+          <span>Launch Blinker ▷</span>
+        </button>
+
+        <button id="launchVectorsBtn" class="pill-btn">
+          <span>View Catalog Vectors ➔</span>
+        </button>
+
+        <button id="launchDiffBtn" class="pill-btn">
+          <span>Inspect Dipole Heatmap</span>
+        </button>
+
+        <button id="launchSpectrumBtn" class="pill-btn">
+          <span>102-Band Spectrum</span>
+        </button>
+      </div>
+
+      <!-- Benchmark Cards Grid -->
+      <div class="benchmark-cards-grid" id="benchmarkCardsGrid">
+        <!-- Rendered dynamically via presets.js -->
+      </div>
+    </section>
+
+    <!-- Right Section: Mission Info Card -->
+    <aside class="info-card-frame">
+      <h1 class="info-title" id="cardTitle">
+        <strong>Planet X & SPHEREx</strong> Mission Benchmark Architecture.
+      </h1>
+
+      <div class="info-body">
+        <p id="cardDescription">
+          The SPHEREx mission performs an all-sky spectroscopic survey across 102 infrared bands (0.75 to 5.00 μm). These 5 benchmark targets provide rigorous validation for high proper-motion tracking, sub-stellar brown dwarf detection, binary orbits, eruptive circumstellar dust disks, and long-period AGB stellar pulsations.
+        </p>
+
+        <div class="selected-benchmark-box" id="selectedBox">
+          <div class="selected-header" id="selName">WISE 0855-0714</div>
+          <div class="selected-sub" id="selType">Sub-stellar Brown Dwarf</div>
+          <p class="selected-desc" id="selDesc">
+            Fourth closest system to the Sun. Sub-zero Celsius temperature (250 K), prominent in SPHEREx Band 5 & 6.
+          </p>
+        </div>
+      </div>
+
+      <!-- Telemetry Grid -->
+      <div class="telemetry-grid">
+        <div class="telemetry-item">
+          <span class="telemetry-label">Active Target RA</span>
+          <span class="telemetry-value" id="valRA">133.7951°</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Active Target Dec</span>
+          <span class="telemetry-value" id="valDec">-7.2451°</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Proper Motion</span>
+          <span class="telemetry-value" id="valPM">8,150 mas/yr</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Optimal Band</span>
+          <span class="telemetry-value" id="valBand">SPHEREx-D6</span>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="shared.js"></script>
+  <script src="presets.js"></script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPHEREx — 102-Band Spectrophotometry SED Viewer</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="spectrum.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="site-header">
+    <a href="explore.html" class="brand">
+      <svg class="brand-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="45" stroke="#6f8cb8" stroke-width="1.8" stroke-dasharray="6 4"/>
+        <ellipse cx="50" cy="50" rx="36" ry="18" stroke="#a0b8db" stroke-width="2" transform="rotate(-25 50 50)"/>
+        <circle cx="50" cy="50" r="14" fill="#142036" stroke="#00e5ff" stroke-width="2.5"/>
+        <path d="M42 50 L58 50 M50 42 L50 58" stroke="#00e5ff" stroke-width="1.8"/>
+        <circle cx="68" cy="38" r="3" fill="#ffffff"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-title">SPHEREx</span>
+        <span class="brand-sub">Spectrophotometry (SED)</span>
+      </div>
+    </a>
+
+    <nav>
+      <ul class="nav-links">
+        <li><a href="presets.html" class="nav-link" data-i18n="nav_about">About</a></li>
+        <li><a href="explore.html" class="nav-link" data-i18n="nav_explore">Explore</a></li>
+        <li><a href="track.html" class="nav-link" data-i18n="nav_track">Track</a></li>
+        <li><a href="catalog.html" class="nav-link" data-i18n="nav_catalog">Catalog</a></li>
+        <li><a href="spectrum.html" class="nav-link active" data-i18n="nav_spectrum">Spectrum</a></li>
+        <li><button id="langToggleBtn" class="lang-toggle-btn">ENG/MM</button></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Dual-Frame Main Container -->
+  <main class="main-container">
+    
+    <!-- Left Section: 102-Band Chart Viewport & Controls -->
+    <section class="left-section">
+      <div class="viewport-frame" id="viewportFrame">
+        <div class="badge-corner" id="coordsBadge">TARGET: WISE 0855-0714 (0.75 - 5.00 μm)</div>
+        <div class="badge-corner-right" id="channelBadge">102 BANDS • 6 DETECTORS</div>
+        
+        <canvas id="spectrumCanvas" width="960" height="600" class="viewport-canvas"></canvas>
+
+        <div class="loader-overlay" id="loaderOverlay">
+          <div class="spinner"></div>
+          <span class="loader-text" id="loaderText">Extracting 102-channel spectrophotometry...</span>
+        </div>
+      </div>
+
+      <!-- Controls Row -->
+      <div class="controls-row">
+        <button id="btnToggleLog" class="pill-btn active">
+          <span id="logLabel">Logarithmic Flux Scale</span>
+        </button>
+
+        <button id="btnToggleMolecules" class="pill-btn active">
+          <span>Molecular Absorption (H₂O, CO₂, CH₄)</span>
+        </button>
+
+        <button id="btnFilterClean" class="pill-btn">
+          <span>Hide Flagged Bad Pixels</span>
+        </button>
+
+        <div class="pill-select-wrapper">
+          <select id="targetSelect" class="pill-select" aria-label="Select Target">
+            <option value="wise-0855">WISE 0855-0714 (Cold Brown Dwarf)</option>
+            <option value="eps-indi-b">Epsilon Indi B (Binary T-Dwarf)</option>
+            <option value="barnards-star">Barnard's Star (M-Dwarf)</option>
+            <option value="rw-aurigae">RW Aurigae (T Tauri Disk)</option>
+            <option value="r-draconis">R Draconis (Mira Giant)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Channel Hover Data Banner -->
+      <div class="channel-hover-strip" id="channelBanner">
+        Hover along the spectrum to inspect individual spectrophotometric channels and SNR...
+      </div>
+    </section>
+
+    <!-- Right Section: Scientific SED Info Card -->
+    <aside class="info-card-frame">
+      <h1 class="info-title" id="cardTitle">
+        <strong>102-Band SED</strong> synthesized via inverse-variance weighting.
+      </h1>
+
+      <div class="info-body">
+        <p id="cardDescription">
+          SPHEREx uses 6 Linear Variable Filter (LVF) detector arrays to capture complete all-sky spectrophotometry from 0.75 μm to 5.00 μm. Photometric fluxes are converted from MJy/sr to μJy using exact pixel solid angle geometry with error propagation from VARIANCE HDUs.
+        </p>
+
+        <!-- Detector Bands Legend -->
+        <div class="detector-legend-grid">
+          <div class="det-chip" style="border-color:#448aff;"><span class="chip-dot" style="background:#448aff;"></span> D1: 0.75-1.09 μm</div>
+          <div class="det-chip" style="border-color:#00e5ff;"><span class="chip-dot" style="background:#00e5ff;"></span> D2: 1.10-1.62 μm</div>
+          <div class="det-chip" style="border-color:#00e676;"><span class="chip-dot" style="background:#00e676;"></span> D3: 1.63-2.41 μm</div>
+          <div class="det-chip" style="border-color:#ffeb3b;"><span class="chip-dot" style="background:#ffeb3b;"></span> D4: 2.42-3.82 μm</div>
+          <div class="det-chip" style="border-color:#ff9100;"><span class="chip-dot" style="background:#ff9100;"></span> D5: 3.83-4.41 μm</div>
+          <div class="det-chip" style="border-color:#ff5252;"><span class="chip-dot" style="background:#ff5252;"></span> D6: 4.42-5.00 μm</div>
+        </div>
+      </div>
+
+      <!-- Telemetry Grid -->
+      <div class="telemetry-grid">
+        <div class="telemetry-item">
+          <span class="telemetry-label">Covered Channels</span>
+          <span class="telemetry-value" id="valChannels">102 / 102</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Peak Flux</span>
+          <span class="telemetry-value" id="valPeakFlux">1,240.5 μJy</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Mean SNR</span>
+          <span class="telemetry-value" id="valMeanSNR">28.4</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Aperture Radius</span>
+          <span class="telemetry-value">6.2 arcsec</span>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="shared.js"></script>
+  <script src="spectrum.js"></script>
+</body>
+</html>

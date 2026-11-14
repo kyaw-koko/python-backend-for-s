@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPHEREx — Vector Field & Catalog Overlay (Gaia DR3 & AllWISE)</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="catalog.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="site-header">
+    <a href="explore.html" class="brand">
+      <svg class="brand-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="45" stroke="#6f8cb8" stroke-width="1.8" stroke-dasharray="6 4"/>
+        <ellipse cx="50" cy="50" rx="36" ry="18" stroke="#a0b8db" stroke-width="2" transform="rotate(-25 50 50)"/>
+        <circle cx="50" cy="50" r="14" fill="#142036" stroke="#00e5ff" stroke-width="2.5"/>
+        <path d="M42 50 L58 50 M50 42 L50 58" stroke="#00e5ff" stroke-width="1.8"/>
+        <circle cx="68" cy="38" r="3" fill="#ffffff"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-title">SPHEREx</span>
+        <span class="brand-sub">Multi-Mission Astrometry</span>
+      </div>
+    </a>
+
+    <nav>
+      <ul class="nav-links">
+        <li><a href="presets.html" class="nav-link" data-i18n="nav_about">About</a></li>
+        <li><a href="explore.html" class="nav-link" data-i18n="nav_explore">Explore</a></li>
+        <li><a href="track.html" class="nav-link" data-i18n="nav_track">Track</a></li>
+        <li><a href="catalog.html" class="nav-link active" data-i18n="nav_catalog">Catalog</a></li>
+        <li><a href="spectrum.html" class="nav-link" data-i18n="nav_spectrum">Spectrum</a></li>
+        <li><button id="langToggleBtn" class="lang-toggle-btn">ENG/MM</button></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Dual-Frame Main Container -->
+  <main class="main-container">
+    
+    <!-- Left Section: Vector Canvas & Overlay Controls -->
+    <section class="left-section">
+      <div class="viewport-frame" id="viewportFrame">
+        <div class="badge-corner" id="coordsBadge">RA 269.4521° • DEC 4.6934° (ICRS)</div>
+        <div class="badge-corner-right" id="countsBadge">GAIA: 124 • ALLWISE: 68</div>
+        
+        <canvas id="vectorCanvas" width="960" height="600" class="viewport-canvas"></canvas>
+
+        <div class="loader-overlay" id="loaderOverlay">
+          <div class="spinner"></div>
+          <span class="loader-text" id="loaderText">Cross-matching Gaia DR3 & AllWISE via IRSA TAP...</span>
+        </div>
+      </div>
+
+      <!-- Pill Controls Row -->
+      <div class="controls-row">
+        <button id="toggleGaiaBtn" class="pill-btn active">
+          <span style="color:#00e5ff;">●</span>
+          <span>Gaia DR3 (Optical)</span>
+        </button>
+
+        <button id="toggleAllwiseBtn" class="pill-btn active">
+          <span style="color:#ff9100;">◆</span>
+          <span>AllWISE (Infrared)</span>
+        </button>
+
+        <button id="toggleVectorsBtn" class="pill-btn active">
+          <span style="color:#ffff00;">➔</span>
+          <span>Proper Motion Vectors</span>
+        </button>
+
+        <div class="pill-select-wrapper">
+          <select id="targetSelect" class="pill-select" aria-label="Select Target">
+            <option value="barnards-star">Barnard's Star (10.3"/yr)</option>
+            <option value="wise-0855">WISE 0855-0714 (Brown Dwarf)</option>
+            <option value="eps-indi-b">Epsilon Indi B (Binary)</option>
+            <option value="rw-aurigae">RW Aurigae (Variable)</option>
+            <option value="r-draconis">R Draconis (AGB Giant)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Baseline Extrapolation Slider -->
+      <div class="timeline-slider-row">
+        <span class="timeline-label">Motion Baseline:</span>
+        <input type="range" id="baselineSlider" min="1" max="100" value="10" step="1" class="timeline-range">
+        <span id="baselineDisplay" class="timeline-speed">10 Years Extrapolation</span>
+      </div>
+    </section>
+
+    <!-- Right Section: Astrometric Inspection Card -->
+    <aside class="info-card-frame">
+      <h1 class="info-title" id="cardTitle">
+        <strong>Multi-Mission Astrometry</strong> & Proper-Motion Vector Field.
+      </h1>
+
+      <div class="info-body">
+        <p id="cardDescription">
+          Cross-matching Gaia DR3 optical astrometry with AllWISE mid-infrared photometry directly on the SPHEREx North-Up TAN WCS coordinate grid.
+        </p>
+
+        <div class="star-inspector-box" id="inspectorBox">
+          <div class="inspector-header" id="insDesignation">Hover over any star marker...</div>
+          <div class="inspector-details" id="insDetails">
+            Hover over cyan circles (Gaia DR3) or orange diamonds (AllWISE) to inspect parallax, magnitudes, and celestial motion vectors.
+          </div>
+        </div>
+      </div>
+
+      <!-- Telemetry Grid -->
+      <div class="telemetry-grid">
+        <div class="telemetry-item">
+          <span class="telemetry-label">Gaia DR3 Sources</span>
+          <span class="telemetry-value" id="valGaiaCount">124</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">AllWISE Sources</span>
+          <span class="telemetry-value" id="valAllwiseCount">68</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Max Proper Motion</span>
+          <span class="telemetry-value" id="valMaxPM">10,393 mas/yr</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Projection</span>
+          <span class="telemetry-value">TAN (North-Up, East-Left)</span>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="shared.js"></script>
+  <script src="catalog.js"></script>
+</body>
+</html>

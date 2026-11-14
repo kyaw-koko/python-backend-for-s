@@ -5,18 +5,34 @@ Transforms celestial coordinates into normalized pixel coordinates (x, y)
 on the reference North-Up TAN WCS grid and computes proper motion vectors.
 """
 
+import concurrent.futures
 import logging
+import os
+import pickle
+import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
+from astropy.utils.data import conf
 from astropy.wcs import WCS
 from astroquery.ipac.irsa import Irsa
 from astroquery.vizier import Vizier
 
+# Configure remote network timeout to prevent hanging connections
+conf.remote_timeout = 60
+
+# Point Vizier to reliable US Harvard mirror to avoid Strasbourg 404s
+Vizier.VIZIER_SERVER = "vizier.cfa.harvard.edu"
+
 logger = logging.getLogger("spherex.catalog_overlay")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
+# In-Memory Cache for multi-mission catalog queries to avoid redundant network hits
+RAW_CATALOG_CACHE: Dict[str, Dict[str, Any]] = {}
+CATALOG_CACHE_MAX_ENTRIES = 50
 
 
 def query_gaia_dr3(
@@ -61,9 +77,44 @@ def query_gaia_dr3(
             logger.info(f"Retrieved {len(results)} Gaia DR3 sources via IRSA.")
             return results
     except Exception as exc:
-        logger.warning(f"IRSA Gaia DR3 query encountered issue: {exc}. Trying VizieR fallback...")
+        logger.warning(f"IRSA Gaia DR3 query encountered issue: {exc}. Trying ESA Gaia TAP fallback...")
 
-    # 2. Fallback to Vizier
+    # 2. Fallback to ESA Gaia TAP
+    try:
+        from astroquery.gaia import Gaia
+        Gaia.ROW_LIMIT = max_rows
+        job = Gaia.cone_search_async(target_coord, radius=radius)
+        g_table = job.get_results()
+        if g_table is not None and len(g_table) > 0:
+            for row in g_table[:max_rows]:
+                ra = float(row["ra"])
+                dec = float(row["dec"])
+                pmra = float(row["pmra"]) if ("pmra" in row.colnames and np.isfinite(row["pmra"])) else 0.0
+                pmdec = float(row["pmdec"]) if ("pmdec" in row.colnames and np.isfinite(row["pmdec"])) else 0.0
+                g_mag = float(row["phot_g_mean_mag"]) if ("phot_g_mean_mag" in row.colnames and np.isfinite(row["phot_g_mean_mag"])) else None
+                bp_mag = float(row["phot_bp_mean_mag"]) if ("phot_bp_mean_mag" in row.colnames and np.isfinite(row["phot_bp_mean_mag"])) else None
+                rp_mag = float(row["phot_rp_mean_mag"]) if ("phot_rp_mean_mag" in row.colnames and np.isfinite(row["phot_rp_mean_mag"])) else None
+                parallax = float(row["parallax"]) if ("parallax" in row.colnames and np.isfinite(row["parallax"])) else None
+                desig = f"Gaia DR3 {row.get('source_id', '')}"
+                results.append({
+                    "catalog": "Gaia DR3",
+                    "designation": desig,
+                    "ra": ra,
+                    "dec": dec,
+                    "pmra_mas_yr": pmra,
+                    "pmdec_mas_yr": pmdec,
+                    "pm_total_mas_yr": float(np.sqrt(pmra**2 + pmdec**2)),
+                    "mag_g": g_mag,
+                    "mag_bp": bp_mag,
+                    "mag_rp": rp_mag,
+                    "parallax_mas": parallax,
+                })
+            logger.info(f"Retrieved {len(results)} Gaia DR3 sources via ESA Gaia TAP.")
+            return results
+    except Exception as gaia_err:
+        logger.warning(f"ESA Gaia TAP fallback issue: {gaia_err}. Trying Harvard VizieR fallback...")
+
+    # 3. Fallback to Harvard Vizier
     try:
         v = Vizier(columns=["Source", "RA_ICRS", "DE_ICRS", "pmRA", "pmDE", "Gmag", "BPmag", "RPmag", "Plx"], row_limit=max_rows)
         v_res = v.query_region(target_coord, radius=radius, catalog="I/355/gaiadr3")
@@ -265,15 +316,61 @@ def cross_match_catalogs(
 ) -> Dict[str, Any]:
     """
     Execute full multi-mission catalog query and cross-match for Gaia DR3 and AllWISE.
+    Uses in-memory cache to prevent redundant remote queries and timeouts.
     """
-    target_coord = SkyCoord(ra=ra_deg * u.deg, dec=dec_deg * u.deg, frame="icrs")
-    # Search radius covers full diagonal of the FOV square
-    search_radius = (fov_deg * np.sqrt(2.0) / 2.0) * u.deg
+    cache_key = f"{ra_deg:.4f}_{dec_deg:.4f}_{fov_deg:.4f}"
+    cached_entry = RAW_CATALOG_CACHE.get(cache_key)
 
-    logger.info(f"Querying Gaia DR3 & AllWISE within radius {search_radius.to(u.arcmin):.2f}...")
+    # 1. Check in-memory cache
+    if cached_entry and (time.time() - cached_entry["timestamp"] < 86400):  # 24-hour TTL
+        logger.info(f"Using in-memory cached catalog astrometry for {cache_key}")
+        raw_gaia = cached_entry["gaia"]
+        raw_allwise = cached_entry["allwise"]
+    else:
+        # 2. Check on-disk persistent cache
+        disk_cache_dir = Path(".cache_spherex")
+        disk_cache_dir.mkdir(exist_ok=True)
+        disk_file = disk_cache_dir / f"cat_{cache_key}.pkl"
 
-    raw_gaia = query_gaia_dr3(target_coord, search_radius)
-    raw_allwise = query_allwise(target_coord, search_radius)
+        if disk_file.exists():
+            try:
+                with open(disk_file, "rb") as f:
+                    disk_entry = pickle.load(f)
+                logger.info(f"Loaded persistent disk catalog cache for {cache_key}")
+                raw_gaia = disk_entry["gaia"]
+                raw_allwise = disk_entry["allwise"]
+                RAW_CATALOG_CACHE[cache_key] = disk_entry
+            except Exception as e:
+                logger.warning(f"Failed reading disk cache for {cache_key}: {e}")
+                disk_entry = None
+        else:
+            disk_entry = None
+
+        if disk_entry is None:
+            target_coord = SkyCoord(ra=ra_deg * u.deg, dec=dec_deg * u.deg, frame="icrs")
+            search_radius = (fov_deg * np.sqrt(2.0) / 2.0) * u.deg
+
+            logger.info(f"Querying Gaia DR3 & AllWISE concurrently within radius {search_radius.to(u.arcmin):.2f}...")
+
+            # Run Gaia and AllWISE in parallel threads to cut remote query latency by 50%
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                f_gaia = executor.submit(query_gaia_dr3, target_coord, search_radius)
+                f_allwise = executor.submit(query_allwise, target_coord, search_radius)
+                raw_gaia = f_gaia.result()
+                raw_allwise = f_allwise.result()
+
+            cache_data = {
+                "timestamp": time.time(),
+                "gaia": raw_gaia,
+                "allwise": raw_allwise,
+            }
+
+            RAW_CATALOG_CACHE[cache_key] = cache_data
+            try:
+                with open(disk_file, "wb") as f:
+                    pickle.dump(cache_data, f)
+            except Exception as e:
+                logger.warning(f"Failed writing disk catalog cache: {e}")
 
     projected_gaia = project_sources_to_wcs(raw_gaia, ref_wcs, shape_out, pixel_scale_arcsec)
     projected_allwise = project_sources_to_wcs(raw_allwise, ref_wcs, shape_out, pixel_scale_arcsec)

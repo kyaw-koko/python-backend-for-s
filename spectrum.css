@@ -1,0 +1,52 @@
+/* ==========================================================================
+   SPHEREx 102-Band Spectrophotometry Stylesheet
+   ========================================================================== */
+
+.channel-hover-strip {
+  background: rgba(14, 20, 32, 0.7);
+  border: 1px solid var(--border-glow-soft);
+  border-radius: var(--radius-pill);
+  padding: 10px 24px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-muted);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  transition: all 0.2s ease;
+}
+
+.channel-hover-strip.active {
+  border-color: var(--cyan-accent);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.2);
+  color: #ffffff;
+}
+
+.detector-legend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.det-chip {
+  background: rgba(11, 15, 23, 0.6);
+  border: 1px solid var(--border-glow-soft);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

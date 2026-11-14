@@ -18,10 +18,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import matplotlib
 import matplotlib.cm as cm
 import numpy as np
+from astropy.stats import sigma_clipped_stats
 from astropy.visualization import AsinhStretch, ImageNormalize, LinearStretch, ZScaleInterval
 from astropy.wcs import FITSFixedWarning, WCS
 from PIL import Image
 from reproject import reproject_interp
+from scipy.ndimage import maximum_filter
 
 # Suppress benign warnings
 warnings.filterwarnings("ignore", category=FITSFixedWarning)
@@ -67,7 +69,7 @@ def reproject_cutout_image(
     shape_out: Tuple[int, int],
 ) -> np.ndarray:
     """
-    Reproject a 2D cutout onto the target WCS grid using reproject_interp.
+    Reproject a 2D cutout onto the target WCS grid using reproject_interp with bicubic spline.
     Fills out-of-bounds or non-finite pixels with NaN.
     """
     try:
@@ -75,6 +77,7 @@ def reproject_cutout_image(
             (image_data, input_wcs),
             target_wcs,
             shape_out=shape_out,
+            order="bicubic",
         )
         return reprojected.astype(np.float32)
     except Exception as exc:
@@ -82,21 +85,69 @@ def reproject_cutout_image(
         return np.full(shape_out, np.nan, dtype=np.float32)
 
 
+def detect_star_peaks(
+    image_array: np.ndarray,
+    min_snr: float = 3.5,
+    max_stars: int = 50,
+) -> List[Dict[str, Any]]:
+    """
+    Automatically detect point sources (stars/dwarfs) above the local background
+    using 3x3 local maximum filtering and sigma-clipped noise estimation.
+    """
+    arr = np.copy(image_array).astype(np.float32)
+    valid = arr[np.isfinite(arr) & (arr > -1.0)]
+    if valid.size < 16:
+        return []
+
+    try:
+        mean_bkg, med_bkg, std_bkg = sigma_clipped_stats(valid, sigma=2.5)
+        if std_bkg <= 0 or not np.isfinite(std_bkg):
+            return []
+
+        threshold = med_bkg + min_snr * std_bkg
+        max_filt = maximum_filter(arr, size=3)
+        peaks_mask = (arr == max_filt) & (arr >= threshold) & np.isfinite(arr)
+        y_indices, x_indices = np.where(peaks_mask)
+
+        H, W = arr.shape
+        stars: List[Dict[str, Any]] = []
+        for x, y in zip(x_indices, y_indices):
+            peak_val = float(arr[y, x])
+            snr = round(float((peak_val - med_bkg) / std_bkg), 1)
+            stars.append({
+                "x_pix": int(x),
+                "y_pix": int(y),
+                "norm_x": round(float(x) / max(1, W - 1), 4),
+                "norm_y": round(float(y) / max(1, H - 1), 4),
+                "peak_flux": round(peak_val, 4),
+                "snr": snr,
+            })
+
+        stars.sort(key=lambda s: s["snr"], reverse=True)
+        return stars[:max_stars]
+    except Exception as exc:
+        logger.warning(f"Star detection failed: {exc}")
+        return []
+
+
 def stretch_and_encode_png(
     image_array: np.ndarray,
     stretch_type: str = "asinh",
-    colormap: str = "viridis",
+    colormap: str = "magma",
     invert: bool = False,
-    asinh_a: float = 0.1,
+    asinh_a: float = 0.08,
     contrast: float = 0.25,
     is_diff: bool = False,
+    clean_background: bool = True,
 ) -> Dict[str, Any]:
     """
-    Apply astronomical contrast stretching (AsinhStretch + ZScaleInterval) and
-    encode into Base64 PNG ready for HTML5 <canvas> display.
+    Apply robust background noise floor, anomaly filtering, astronomical contrast
+    stretching (AsinhStretch), and encode into Base64 PNG ready for HTML5 <canvas> display.
     """
     arr = np.copy(image_array).astype(np.float32)
-    nan_mask = ~np.isfinite(arr)
+    # Reject extreme negative values and NaNs
+    nan_mask = ~np.isfinite(arr) | (arr < -1.0)
+    arr[nan_mask] = np.nan
     valid_pixels = arr[~nan_mask]
 
     if valid_pixels.size == 0:
@@ -125,6 +176,18 @@ def stretch_and_encode_png(
             p99 = 1.0
         vmin = diff_median - p99
         vmax = diff_median + p99
+    elif clean_background:
+        # Robust astronomical background subtraction & noise suppression
+        try:
+            mean_bkg, med_bkg, std_bkg = sigma_clipped_stats(valid_pixels, sigma=2.5)
+            # Push all sky noise fluctuations below the background noise floor to vmin
+            vmin = float(med_bkg)
+            vmax = float(min(np.max(valid_pixels), med_bkg + 18.0 * std_bkg))
+            if vmax <= vmin:
+                vmax = vmin + 1.0
+        except Exception:
+            vmin = float(np.percentile(valid_pixels, 15.0))
+            vmax = float(np.percentile(valid_pixels, 99.5))
     else:
         # Standard astronomical ZScale interval
         try:
@@ -135,8 +198,8 @@ def stretch_and_encode_png(
             vmax = float(np.percentile(valid_pixels, 99.0))
 
     if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin >= vmax:
-        vmin = float(np.min(valid_pixels))
-        vmax = float(np.max(valid_pixels))
+        vmin = float(np.nanmin(valid_pixels))
+        vmax = float(np.nanmax(valid_pixels))
         if vmin >= vmax:
             vmax = vmin + 1e-4
 
@@ -158,7 +221,7 @@ def stretch_and_encode_png(
     try:
         cmap = matplotlib.colormaps[colormap]
     except KeyError:
-        cmap = matplotlib.colormaps["viridis"]
+        cmap = matplotlib.colormaps.get("magma", matplotlib.colormaps["viridis"])
 
     rgba_floats = cmap(norm_data)
     rgba_bytes = (rgba_floats * 255).astype(np.uint8)
@@ -185,7 +248,7 @@ def process_epochs_mode(
     cutouts: List[Dict[str, Any]],
     target_wcs: WCS,
     shape_out: Tuple[int, int],
-    colormap: str = "viridis",
+    colormap: str = "magma",
     stretch: str = "asinh",
 ) -> List[Dict[str, Any]]:
     """
@@ -206,7 +269,10 @@ def process_epochs_mode(
             stretch_type=stretch,
             colormap=colormap,
             is_diff=False,
+            clean_background=True,
         )
+
+        stars = detect_star_peaks(reprojected, min_snr=3.5)
 
         frames.append({
             "frame_index": idx,
@@ -222,6 +288,7 @@ def process_epochs_mode(
             "width": shape_out[1],
             "height": shape_out[0],
             "mean_flux": float(np.nanmean(reprojected)) if np.any(np.isfinite(reprojected)) else 0.0,
+            "detected_stars": stars,
         })
 
     return frames

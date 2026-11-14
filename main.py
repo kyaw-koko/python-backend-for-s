@@ -8,13 +8,17 @@ FastAPI Application serving astronomical data processing pipelines:
 """
 
 import logging
+import os
+import pickle
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 import uvicorn
 from astropy.coordinates import SkyCoord
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from catalog_overlay import cross_match_catalogs
@@ -45,10 +49,13 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# Simple In-Memory Cutout Cache to accelerate repeated API requests
+# Persistent Disk & Fast In-Memory Cutout Cache
 # ---------------------------------------------------------------------------
+DISK_CACHE_DIR = Path(".cache_spherex")
+DISK_CACHE_DIR.mkdir(exist_ok=True)
+
 CUTOUT_CACHE: Dict[str, Dict[str, Any]] = {}
-CACHE_MAX_ENTRIES = 30
+CACHE_MAX_ENTRIES = 50
 
 
 def get_cache_key(ra: float, dec: float, fov: float, detector: Optional[str]) -> str:
@@ -57,9 +64,23 @@ def get_cache_key(ra: float, dec: float, fov: float, detector: Optional[str]) ->
 
 
 def get_cached_cutouts(cache_key: str) -> Optional[List[Dict[str, Any]]]:
+    # 1. Fast in-memory check
     entry = CUTOUT_CACHE.get(cache_key)
-    if entry and (time.time() - entry["timestamp"] < 3600):  # 1 hour TTL
+    if entry and (time.time() - entry["timestamp"] < 86400):  # 24 hour TTL
         return entry["cutouts"]
+
+    # 2. Persistent disk check
+    disk_file = DISK_CACHE_DIR / f"cutouts_{cache_key}.pkl"
+    if disk_file.exists():
+        try:
+            with open(disk_file, "rb") as f:
+                disk_data = pickle.load(f)
+            CUTOUT_CACHE[cache_key] = disk_data
+            logger.info(f"Loaded persistent disk cutouts for {cache_key}")
+            return disk_data["cutouts"]
+        except Exception as e:
+            logger.warning(f"Error reading disk cache {disk_file}: {e}")
+
     return None
 
 
@@ -68,10 +89,20 @@ def store_cached_cutouts(cache_key: str, cutouts: List[Dict[str, Any]]):
         # Evict oldest entry
         oldest_key = min(CUTOUT_CACHE.keys(), key=lambda k: CUTOUT_CACHE[k]["timestamp"])
         del CUTOUT_CACHE[oldest_key]
-    CUTOUT_CACHE[cache_key] = {
+    
+    data = {
         "timestamp": time.time(),
         "cutouts": cutouts,
     }
+    CUTOUT_CACHE[cache_key] = data
+
+    # Persist to local disk so restarts don't lose data
+    disk_file = DISK_CACHE_DIR / f"cutouts_{cache_key}.pkl"
+    try:
+        with open(disk_file, "wb") as f:
+            pickle.dump(data, f)
+    except Exception as e:
+        logger.warning(f"Failed writing disk cutouts cache {disk_file}: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -389,5 +420,10 @@ def get_spectrum(
     }
 
 
+# Mount project root as static folder so frontend HTML/JS/CSS can be served directly
+app.mount("/static", StaticFiles(directory=".", html=True), name="static")
+
+
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # Bound strictly to 127.0.0.1 (localhost) to prevent external Wi-Fi scanners/probes
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

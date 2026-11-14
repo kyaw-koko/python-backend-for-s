@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPHEREx — Dipole Heatmap & Epoch Difference Inspector</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="diff.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="site-header">
+    <a href="explore.html" class="brand">
+      <svg class="brand-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="45" stroke="#6f8cb8" stroke-width="1.8" stroke-dasharray="6 4"/>
+        <ellipse cx="50" cy="50" rx="36" ry="18" stroke="#a0b8db" stroke-width="2" transform="rotate(-25 50 50)"/>
+        <circle cx="50" cy="50" r="14" fill="#142036" stroke="#00e5ff" stroke-width="2.5"/>
+        <path d="M42 50 L58 50 M50 42 L50 58" stroke="#00e5ff" stroke-width="1.8"/>
+        <circle cx="68" cy="38" r="3" fill="#ffffff"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-title">SPHEREx</span>
+        <span class="brand-sub">Dipole Track Inspector</span>
+      </div>
+    </a>
+
+    <nav>
+      <ul class="nav-links">
+        <li><a href="presets.html" class="nav-link" data-i18n="nav_about">About</a></li>
+        <li><a href="explore.html" class="nav-link" data-i18n="nav_explore">Explore</a></li>
+        <li><a href="track.html" class="nav-link active" data-i18n="nav_track">Track</a></li>
+        <li><a href="catalog.html" class="nav-link" data-i18n="nav_catalog">Catalog</a></li>
+        <li><a href="spectrum.html" class="nav-link" data-i18n="nav_spectrum">Spectrum</a></li>
+        <li><button id="langToggleBtn" class="lang-toggle-btn">ENG/MM</button></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Dual-Frame Main Container -->
+  <main class="main-container">
+    
+    <!-- Left Section: Diff Viewport & Controls -->
+    <section class="left-section">
+      <div class="viewport-frame" id="viewportFrame">
+        <div class="badge-corner" id="coordsBadge">RA 269.4521° • DEC 4.6934° (TAN WCS)</div>
+        <div class="badge-corner-right" id="dipoleBadge">DIPOLE CONTRAST: 1.28 MJy/sr</div>
+        
+        <canvas id="diffCanvas" width="960" height="600" class="viewport-canvas"></canvas>
+
+        <div class="loader-overlay" id="loaderOverlay">
+          <div class="spinner"></div>
+          <span class="loader-text" id="loaderText">Computing Epoch B - Epoch A Differencing...</span>
+        </div>
+      </div>
+
+      <!-- Controls Row -->
+      <div class="controls-row">
+        <button id="btnViewDiff" class="pill-btn active">
+          <span>Dipole Heatmap (B - A)</span>
+        </button>
+
+        <button id="btnWipeSlider" class="pill-btn">
+          <span>Interactive Wipe Curtain ⇄</span>
+        </button>
+
+        <button id="btnToggleEpochs" class="pill-btn">
+          <span id="epochLabel">Show Epoch B (Current)</span>
+        </button>
+
+        <div class="pill-select-wrapper">
+          <select id="targetSelect" class="pill-select" aria-label="Select Target">
+            <option value="barnards-star">Barnard's Star (Dipole Benchmark)</option>
+            <option value="wise-0855">WISE 0855-0714 (Cold Brown Dwarf)</option>
+            <option value="eps-indi-b">Epsilon Indi B (Binary)</option>
+            <option value="rw-aurigae">RW Aurigae (Variable)</option>
+            <option value="r-draconis">R Draconis (AGB Giant)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Wipe Curtain Scrubber -->
+      <div class="timeline-slider-row" id="wipeRow" style="display:none;">
+        <span class="timeline-label">Epoch A &larr; Wipe Divider &rarr; Epoch B:</span>
+        <input type="range" id="wipeSlider" min="0" max="100" value="50" class="timeline-range">
+        <span id="wipeVal" class="timeline-speed">50% Split</span>
+      </div>
+    </section>
+
+    <!-- Right Section: Info Card Frame -->
+    <aside class="info-card-frame">
+      <h1 class="info-title" id="cardTitle">
+        <strong>Epoch Differencing</strong> highlights proper-motion dipoles.
+      </h1>
+
+      <div class="info-body">
+        <p id="cardDescription">
+          Subtracting Epoch A from Epoch B cancels unmoving background stars. Fast-moving candidates leave a signature dipole: a negative blue trough at the previous position and a positive red peak at the new position.
+        </p>
+
+        <div class="dipole-stats-box">
+          <div class="dipole-indicator red-peak">
+            <span class="dot">●</span> <strong>Positive Peak (New Position):</strong>
+            <span id="posPeakVal">+0.684 MJy/sr</span>
+          </div>
+          <div class="dipole-indicator blue-peak">
+            <span class="dot">●</span> <strong>Negative Peak (Past Position):</strong>
+            <span id="negPeakVal">-0.591 MJy/sr</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Telemetry Grid -->
+      <div class="telemetry-grid">
+        <div class="telemetry-item">
+          <span class="telemetry-label">Dipole Contrast</span>
+          <span class="telemetry-value" id="valContrast">1.275 MJy/sr</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Baseline Separation</span>
+          <span class="telemetry-value" id="valDeltaMJD">13.86 Days</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Colormap</span>
+          <span class="telemetry-value">Coolwarm (Zero-Centered)</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">Candidate Status</span>
+          <span class="telemetry-value" id="valCandidateStatus" style="color:#00e5ff;">Dipole Detected (99.8%)</span>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="shared.js"></script>
+  <script src="diff.js"></script>
+</body>
+</html>
